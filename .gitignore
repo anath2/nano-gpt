@@ -1,0 +1,31 @@
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Datasets (large, pulled separately — see ROADMAP.md)
+data/
+
+# Generated tokenizer artifacts (reproducible from tokenizer.py/nano-gpt.py)
+nano-gpt/bpe_merges*.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Modal
+.modal.toml
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
