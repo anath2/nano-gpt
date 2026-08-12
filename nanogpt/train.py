@@ -126,7 +126,11 @@ def main():
     repo_root = os.path.abspath(os.path.join(HERE, '..'))
     load_dotenv(os.path.join(repo_root, '.env'))
     os.chdir(repo_root)  # modal's CLI resolves imports off the cwd, not this file's dir
-    os.execvp('modal', ['modal', 'run', os.path.join(HERE, 'train.py')])
+    # --detach: without it the remote run is killed the moment the local client
+    # goes away, losing a long GPU run to a closed laptop or a dead shell. Note
+    # the flip side: detached runs outlive the CLI, so an abandoned one has to be
+    # reaped explicitly (`modal app list`, `modal app stop <id>`).
+    os.execvp('modal', ['modal', 'run', '--detach', os.path.join(HERE, 'train.py')])
 
 
 # ---------------------------------------------------------------------------
