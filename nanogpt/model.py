@@ -5,10 +5,14 @@ import torch.nn.functional as F
 
 DROPOUT = 0.2
 CONTEXT_LEN = 256
+N_EMBED = 384
+N_HEAD = 6
+N_LAYER = 6
 
 
 class FeedForward(nn.Module):
     """Feed forward block"""
+
     def __init__(self, n_embed):
         super().__init__()
         self.net = nn.Sequential(
@@ -88,7 +92,7 @@ class Transformer(nn.Module):
 
     def __init__(self, context_len, vocab_size, n_embed, n_layer, n_head):
         super().__init__()
-        self.context_len = context_len
+        self._context_len = context_len
         self.embed = nn.Embedding(vocab_size, n_embed)
         self.pos_embed = nn.Embedding(self.context_len, n_embed)
         self.blocks = nn.Sequential(
@@ -97,6 +101,10 @@ class Transformer(nn.Module):
           nn.LayerNorm(n_embed)
         )
         self.lm_head = nn.Linear(n_embed, vocab_size)
+
+    @property
+    def context_len(self):
+        return self._context_len
 
     def forward(self, idx, target=None):
         B, T  = idx.shape
@@ -128,3 +136,7 @@ class Transformer(nn.Module):
             x = torch.concat((x, next_tok), dim=1)
 
         return x
+
+
+def create_model(vocab_size):
+    return Transformer(CONTEXT_LEN, vocab_size, N_EMBED, N_LAYER, N_HEAD)

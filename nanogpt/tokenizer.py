@@ -168,7 +168,9 @@ if __name__ == '__main__':
     # paths are relative to this file, so it runs from any cwd
     here = os.path.dirname(os.path.abspath(__file__))
     vocab_file = os.path.join(here, '..', 'data', 'wikitext103.train.txt')
-    merges_file = os.path.join(here, 'bpe_merges.txt')
+    # distinct name from data.py's MERGES_PATH so this smoke test never clobbers
+    # the real cached merges (this one is trained on a 1 MB slice, not the full corpus)
+    merges_file = os.path.join(here, '..', 'data', 'bpe_merges_smoketest.txt')
 
     with open(vocab_file) as ft:
         # full-corpus BPE training is too slow (see ROADMAP.md); a 1 MB slice

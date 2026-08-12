@@ -3,11 +3,9 @@
 .env.*
 !.env.example
 
-# Datasets (large, pulled separately — see ROADMAP.md)
+# Datasets, plus generated tokenizer artifacts (bpe_merges*.txt) which also
+# live under data/ — both reproducible/re-downloadable, see ROADMAP.md
 data/
-
-# Generated tokenizer artifacts (reproducible from tokenizer.py/nano-gpt.py)
-nano-gpt/bpe_merges*.txt
 
 # Python
 __pycache__/
