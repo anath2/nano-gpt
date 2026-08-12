@@ -3,7 +3,6 @@ import time
 
 import modal
 import torch
-from dotenv import load_dotenv
 
 from nanogpt.data import DataLoader, build_bpe_tokenizer, load_dataset
 from nanogpt.model import create_model
@@ -119,6 +118,11 @@ def get_device():
 
 
 def main():
+    # imported here, not at module scope: Modal re-imports this module inside the
+    # container to find train_remote, and the image doesn't ship python-dotenv —
+    # reading .env is a local-entrypoint concern the GPU box never has.
+    from dotenv import load_dotenv
+
     repo_root = os.path.abspath(os.path.join(HERE, '..'))
     load_dotenv(os.path.join(repo_root, '.env'))
     os.chdir(repo_root)  # modal's CLI resolves imports off the cwd, not this file's dir
