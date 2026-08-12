@@ -56,7 +56,7 @@ def run(device='cpu', train_path=TRAIN_DATASET_PATH, val_path=VAL_DATASET_PATH,
 
     loader = DataLoader()
     model = create_model(vocab_size).to(device)
-    
+
     assert model.context_len == loader.chunk_size, (
         f'model context_len ({model.context_len}) must match dataloader chunk_size '
         f'({loader.chunk_size})')
@@ -118,18 +118,11 @@ def get_device():
 
 
 def main():
-    # imported here, not at module scope: Modal re-imports this module inside the
-    # container to find train_remote, and the image doesn't ship python-dotenv —
-    # reading .env is a local-entrypoint concern the GPU box never has.
     from dotenv import load_dotenv
 
     repo_root = os.path.abspath(os.path.join(HERE, '..'))
     load_dotenv(os.path.join(repo_root, '.env'))
-    os.chdir(repo_root)  # modal's CLI resolves imports off the cwd, not this file's dir
-    # --detach: without it the remote run is killed the moment the local client
-    # goes away, losing a long GPU run to a closed laptop or a dead shell. Note
-    # the flip side: detached runs outlive the CLI, so an abandoned one has to be
-    # reaped explicitly (`modal app list`, `modal app stop <id>`).
+    os.chdir(repo_root)
     os.execvp('modal', ['modal', 'run', '--detach', os.path.join(HERE, 'train.py')])
 
 
