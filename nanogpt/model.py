@@ -29,6 +29,10 @@ class FeedForward(nn.Module):
 class Head(nn.Module):
     """self attention head"""
 
+    # register_buffer() assigns through Module.__setattr__, so the type has to
+    # be declared here for tril to read as a Tensor rather than a Module
+    tril: torch.Tensor
+
     def __init__(self, head_size, n_embed):
         super().__init__()
         self.head_size = head_size

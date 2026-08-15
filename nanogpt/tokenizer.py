@@ -101,7 +101,7 @@ class BPETokenizer(TokenizerBase):
 
             if not counts:
                 break
-            top_pair = max(counts, key=counts.get)
+            top_pair = max(counts, key=lambda pair: counts[pair])
 
             if counts[top_pair] < 2:
                 break
@@ -145,7 +145,7 @@ class BPETokenizer(TokenizerBase):
         return t
 
     @staticmethod
-    def count_pairs(ids: list[int]) -> dict:
+    def count_pairs(ids: list[int]) -> dict[tuple[int, int], int]:
         counts = {}
         for x, y in zip(ids, ids[1:]):
             counts[(x, y)] = counts.get((x, y), 0) + 1

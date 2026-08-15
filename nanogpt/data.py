@@ -63,6 +63,7 @@ class DataLoader:
 
     def get_batch(self, split, device):
         data = self.dtrain if split == 'train' else self.dval
+        assert data is not None, f'no {split} data: call load() first'
         ix = torch.randint(len(data) - self.chunk_size, (self.batch_size,))
         x = torch.stack([data[i: i + self.chunk_size] for i in ix])
         y = torch.stack([data[i + 1:i + self.chunk_size + 1] for i in ix])
