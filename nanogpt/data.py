@@ -1,6 +1,7 @@
 import os
 import time
 
+import pyarrow.parquet as pq
 import torch
 
 from nanogpt.tokenizer import BPETokenizer
@@ -12,14 +13,16 @@ VOCAB_SIZE = 256
 
 
 def load_dataset(path):
-    with open(path) as rt:
-        return rt.read()
+    """Return the full corpus as one string, decoded from a parquet `text` column."""
+    chunks = []
+    for batch in pq.ParquetFile(path).iter_batches(columns=['text'], batch_size=100_000):
+        chunks.append(''.join(batch.column('text').to_pylist()))
+    return ''.join(chunks)
 
 
 def build_bpe_tokenizer(dataset, merges_path, vocab_size=VOCAB_SIZE):
     if os.path.exists(merges_path):
         tok = BPETokenizer.load(merges_path)
-        # a stale merge table would silently mis-size the embedding table
         assert tok.get_vocab_size() == vocab_size, (
             f'{merges_path} holds vocab {tok.get_vocab_size()}, expected {vocab_size}')
         print(f'Tokenizer: loaded {merges_path} (vocab {tok.get_vocab_size()})')
@@ -35,13 +38,7 @@ def build_bpe_tokenizer(dataset, merges_path, vocab_size=VOCAB_SIZE):
 
 
 class DataLoader:
-    """Samples random training windows from token ids.
-
-    batch_size/chunk_size are configured at construction, before the (possibly
-    slow) token ids are available, so callers can check compatibility with the
-    model's context length up front via those properties; call load() once
-    encoding finishes to actually supply the data.
-    """
+    """Samples random training windows from token ids."""
 
     def __init__(self, batch_size=BATCH_SIZE, chunk_size=CHUNK_SIZE):
         self._batch_size = batch_size

@@ -1,4 +1,3 @@
-import os
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -162,29 +161,3 @@ class BPETokenizer(TokenizerBase):
                 out.append(ids[i])
                 i += 1
         return out
-
-
-if __name__ == '__main__':
-    # paths are relative to this file, so it runs from any cwd
-    here = os.path.dirname(os.path.abspath(__file__))
-    vocab_file = os.path.join(here, '..', 'data', 'wikitext103.train.txt')
-    # distinct name from data.py's MERGES_PATH so this smoke test never clobbers
-    # the real cached merges (this one is trained on a 1 MB slice, not the full corpus)
-    merges_file = os.path.join(here, '..', 'data', 'bpe_merges_smoketest.txt')
-
-    with open(vocab_file) as ft:
-        # full-corpus BPE training is too slow (see ROADMAP.md); a 1 MB slice
-        # is enough for a quick manual round-trip smoke test
-        content = ft.read(1_000_000)
-
-    bpe = BPETokenizer(content)
-    bpe.train()
-    bpe.save(merges_file)
-    print(f'{bpe.get_vocab_size()} tokens, {len(bpe.merges)} merges -> {merges_file}')
-
-    # encode is O(len * merges), so measure on a sample rather than the full corpus
-    sample = content[:10_000]
-    tokens = bpe.encode(sample)
-    print(f'compression: {len(sample.encode("utf-8"))} bytes -> {len(tokens)} tokens '
-          f'({len(sample.encode("utf-8")) / len(tokens):.2f}x)')
-    assert bpe.decode(tokens) == sample, 'round-trip failed'

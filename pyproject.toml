@@ -14,7 +14,6 @@ dependencies = [
 
 [project.scripts]
 nanogpt-train = "nanogpt.train:main"
-download-dataset-wikipedia = "nanogpt.download:main"
 
 [build-system]
 requires = ["hatchling"]

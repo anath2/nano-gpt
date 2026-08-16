@@ -15,10 +15,12 @@ class FeedForward(nn.Module):
 
     def __init__(self, n_embed):
         super().__init__()
+        proj = nn.Linear(4 * n_embed, n_embed)
+        proj.RESIDUAL_PROJ = True  # depth-scaled init, see Transformer._init_weights
         self.net = nn.Sequential(
            nn.Linear(n_embed,  4 * n_embed),  # GPT2 paper
            nn.ReLU(),
-           nn.Linear(4 * n_embed, n_embed),
+           proj,
            nn.Dropout(DROPOUT)
         )
 
@@ -65,6 +67,7 @@ class MultiHeadedAttn(nn.Module):
         n_embed = head_size * n_heads
         self.heads = nn.ModuleList([Head(head_size, n_embed) for _ in range(n_heads)])
         self.proj = nn.Linear(n_embed, n_embed)
+        self.proj.RESIDUAL_PROJ = True  # depth-scaled init, see Transformer._init_weights
         self.dropout = nn.Dropout(DROPOUT)
 
     def forward(self, x):
@@ -97,6 +100,7 @@ class Transformer(nn.Module):
     def __init__(self, context_len, vocab_size, n_embed, n_layer, n_head):
         super().__init__()
         self._context_len = context_len
+        self.n_layer = n_layer
         self.embed = nn.Embedding(vocab_size, n_embed)
         self.pos_embed = nn.Embedding(self.context_len, n_embed)
         self.blocks = nn.Sequential(
@@ -105,6 +109,26 @@ class Transformer(nn.Module):
           nn.LayerNorm(n_embed)
         )
         self.lm_head = nn.Linear(n_embed, vocab_size)
+        self.apply(self._init_weights)
+
+        # Tie the output projection to the input embedding (ADR 0001). Must come
+        # after _init_weights: Embedding and Linear have very different untied
+        # defaults, so initializing first and tying second is what keeps this from
+        # blowing up the logit scale.
+        assert self.lm_head.weight.shape == self.embed.weight.shape
+        self.lm_head.weight = self.embed.weight
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = 0.02
+            if getattr(module, 'RESIDUAL_PROJ', False):
+                std *= (2 * self.n_layer) ** -0.5
+            nn.init.normal_(module.weight, mean=0.0, std=std)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        # nn.LayerNorm is left alone: PyTorch already inits weight=1, bias=0.
 
     @property
     def context_len(self):

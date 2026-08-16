@@ -9,9 +9,9 @@ from nanogpt.model import create_model
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MERGES_PATH = os.path.join(HERE, '..', 'data', f'bpe_merges.txt')
-TRAIN_DATASET_PATH = os.path.join(HERE, '..', 'data', 'wikitext103.train.txt')
-VAL_DATASET_PATH = os.path.join(HERE, '..', 'data', 'wikitext103.valid.txt')
+MERGES_PATH = os.path.join(HERE, '..', 'data', 'bpe_merges.txt')
+TRAIN_DATASET_PATH = os.path.join(HERE, '..', 'data', 'train.parquet')
+VAL_DATASET_PATH = os.path.join(HERE, '..', 'data', 'valid.parquet')
 
 # ---------------------------------------------------------------------------
 # Hyperparameters
@@ -130,20 +130,15 @@ def main():
 # Modal: run training + inference on a remote GPU. Local entrypoint:
 #   uv run nanogpt-train
 # ---------------------------------------------------------------------------
-REMOTE_TRAIN_DATASET = '/root/wikitext103.train.txt'
-REMOTE_VAL_DATASET = '/root/wikitext103.valid.txt'
-REMOTE_MERGES = f'/root/bpe_merges.txt'
+REMOTE_TRAIN_DATASET = '/root/train.parquet'
+REMOTE_VAL_DATASET = '/root/valid.parquet'
+REMOTE_MERGES = '/root/bpe_merges.txt'
 
-# NOTE: add_local_file bakes the dataset into the image layer, which is fine for
-# small files but not for the 514 MB wikitext103 train split — this needs to move
-# to a Modal Volume (see ROADMAP.md "Known gotchas") before running at full scale.
 image = (
     modal.Image.debian_slim(python_version="3.13")
-    .pip_install("torch", "tiktoken")   # tiktoken: imported by tokenizer.py
+    .pip_install("torch", "tiktoken", "pyarrow")  # pyarrow: read parquet in data.py
     .add_local_file(TRAIN_DATASET_PATH, REMOTE_TRAIN_DATASET)
     .add_local_file(VAL_DATASET_PATH, REMOTE_VAL_DATASET)
-    # bake the trained merges in so the GPU box loads them instead of spending
-    # minutes retraining the tokenizer on CPU
     .add_local_file(MERGES_PATH, REMOTE_MERGES)
     .add_local_python_source("nanogpt")
 )
