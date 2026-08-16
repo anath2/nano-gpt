@@ -7,12 +7,14 @@ requires-python = ">=3.13"
 dependencies = [
     "modal>=1.5.3",
     "python-dotenv>=1.0.1",
+    "pyarrow>=17.0.0",   # reading the parquet dataset, see data.py
     "tiktoken>=0.13.0",
     "torch>=2.13.0",
 ]
 
 [project.scripts]
 nanogpt-train = "nanogpt.train:main"
+download-dataset-wikipedia = "nanogpt.download:main"
 
 [build-system]
 requires = ["hatchling"]
