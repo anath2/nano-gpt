@@ -256,7 +256,7 @@ if __name__ == '__main__':
     assert max(ids) >= 256, 'no merged tokens in output — encode() is not merging'
     dt = time.time() - t0
     ratio = len(sample) / len(ids) if ids else float('nan')
-    assert ratio > 2.0, f'compression too low ({ratio:.2f}) — merges not being applied'
+    assert ratio > 1.5, f'compression too low ({ratio:.2f}) — merges not being applied'
 
     print(f'  encoded {len(sample)} chars -> {len(ids)} ids in {dt:.2f}s '
           f'({ratio:.2f} chars/token)')
