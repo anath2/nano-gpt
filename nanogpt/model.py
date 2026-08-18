@@ -111,10 +111,6 @@ class Transformer(nn.Module):
         self.lm_head = nn.Linear(n_embed, vocab_size)
         self.apply(self._init_weights)
 
-        # Tie the output projection to the input embedding (ADR 0001). Must come
-        # after _init_weights: Embedding and Linear have very different untied
-        # defaults, so initializing first and tying second is what keeps this from
-        # blowing up the logit scale.
         assert self.lm_head.weight.shape == self.embed.weight.shape
         self.lm_head.weight = self.embed.weight
 

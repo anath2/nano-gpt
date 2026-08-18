@@ -89,7 +89,8 @@ class BPETokenizer(TokenizerBase):
     @classmethod
     def train(cls, text: str, vocab_size: int, pat_str: str = PAT_STR) -> 'BPETokenizer':
         """Train a fresh tokenizer on `text` to `vocab_size` ranks."""
-        assert vocab_size >= 256, "vocab_size must be >= 256 (256 single-byte tokens)"
+        if vocab_size < 256:
+            raise ValueError("vocab_size must be >= 256 (256 single-byte tokens)")
 
         ranks = {bytes([i]): i for i in range(256)}  # seed ranks with single-byte tokens
         word_freq = Counter(m.group(0) for m in regex.finditer(pat_str, text))
@@ -220,12 +221,6 @@ class BPETokenizer(TokenizerBase):
 
 
 if __name__ == '__main__':
-    # TEMPORARY smoke test for iterating on BPETokenizer.train()/.encode() while
-    # they're stubs — remove this block once the real implementation lands.
-    # scripts/train-bpe.py is the actual entry point; this is just a fast local
-    # loop (uv run python -m nanogpt.tokenizer) that doesn't need the parquet
-    # dataset or pyarrow. Bump TRAIN_CHARS up once train()/encode() are fast
-    # enough that 200k chars stops being the right size for quick iteration.
     import os
     import time
 
@@ -238,6 +233,7 @@ if __name__ == '__main__':
 
     with open(SAMPLE_PATH, encoding='utf-8') as f:
         full_text = f.read()
+
     train_text = full_text[:TRAIN_CHARS]
     print(f'Training on {len(train_text)} chars from {SAMPLE_PATH} '
           f'(vocab_size={VOCAB_SIZE}) ...')
@@ -246,35 +242,31 @@ if __name__ == '__main__':
     tok = BPETokenizer.train(train_text, VOCAB_SIZE, PAT_STR)
     print(f'  trained vocab {tok.get_vocab_size()} in {time.time() - t0:.1f}s')
 
-    # ADR 0018 acceptance check #2: ranks must be contiguous 0..vocab_size-1,
-    # since the id IS the rank — a gap here means something sorted/renumbered
-    # the table.
     assert sorted(tok.ranks.values()) == list(range(tok.get_vocab_size())), (
         'ranks are not a contiguous 0..vocab_size-1 range')
     print('  rank contiguity OK')
 
-    # ADR 0018 acceptance check #6: encode/decode on empty input.
     assert tok.encode('') == []
     assert tok.decode([]) == ''
     print('  empty-input edge cases OK')
 
-    # ADR 0018 acceptance check #1: decode(encode(x)) == x.
     sample = train_text[:ENCODE_CHARS]
     t0 = time.time()
     ids = tok.encode(sample)
+    assert max(ids) >= 256, 'no merged tokens in output — encode() is not merging'
     dt = time.time() - t0
     ratio = len(sample) / len(ids) if ids else float('nan')
+    assert ratio > 2.0, f'compression too low ({ratio:.2f}) — merges not being applied'
+
     print(f'  encoded {len(sample)} chars -> {len(ids)} ids in {dt:.2f}s '
           f'({ratio:.2f} chars/token)')
     decoded = tok.decode(ids)
     assert decoded == sample, 'decode(encode(x)) != x'
     print('  round-trip OK')
 
-    # save/load round trip, including the sidecar this format depends on.
     tok.save(OUT_PATH, extra={'smoketest': True})
     loaded = BPETokenizer.load(OUT_PATH)
     assert loaded.ranks == tok.ranks
     assert loaded.pat_str == tok.pat_str
     print(f'  save/load round-trip OK -> {OUT_PATH}')
-
     print('All smoke-test checks passed.')

@@ -6,6 +6,8 @@
 # Datasets, plus generated tokenizer artifacts (bpe_merges*.txt) which also
 # live under data/ — both reproducible/re-downloadable, see ROADMAP.md
 data/
+!data/shakespeare.txt
+# test data
 
 # Python
 __pycache__/
