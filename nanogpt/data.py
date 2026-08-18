@@ -1,10 +1,5 @@
-import os
-import time
-
 import pyarrow.parquet as pq
 import torch
-
-from nanogpt.tokenizer import BPETokenizer
 
 
 BATCH_SIZE = 64
@@ -18,23 +13,6 @@ def load_dataset(path):
     for batch in pq.ParquetFile(path).iter_batches(columns=['text'], batch_size=100_000):
         chunks.append(''.join(batch.column('text').to_pylist()))
     return ''.join(chunks)
-
-
-def build_bpe_tokenizer(dataset, merges_path, vocab_size=VOCAB_SIZE):
-    if os.path.exists(merges_path):
-        tok = BPETokenizer.load(merges_path)
-        assert tok.get_vocab_size() == vocab_size, (
-            f'{merges_path} holds vocab {tok.get_vocab_size()}, expected {vocab_size}')
-        print(f'Tokenizer: loaded {merges_path} (vocab {tok.get_vocab_size()})')
-    else:
-        print(f'Tokenizer: no {merges_path}, training to vocab {vocab_size}...')
-        t0 = time.time()
-        tok = BPETokenizer(dataset, vocab_size=vocab_size)
-        tok.train()
-        tok.save(merges_path)
-        print(f'Tokenizer: trained vocab {tok.get_vocab_size()} in '
-              f'{(time.time() - t0) / 60:.1f} min -> {merges_path}')
-    return tok
 
 
 class DataLoader:
