@@ -1,0 +1,14 @@
+target-version = "py313"
+line-length = 100
+
+extend-exclude = [
+    "data",
+    "docs",
+]
+
+[lint]
+# Small hand-written educational project: keep the baseline to the checks that
+# catch real bugs (pyflakes) and obvious style drift (pycodestyle, isort,
+# pyupgrade), not a strict style/complexity gate. The model/tokenizer code is
+# meant to be written and read by hand, not machine-polished.
+select = ["E", "F", "W", "I", "UP"]
