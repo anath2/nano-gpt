@@ -23,7 +23,7 @@ EVAL_INTERVAL = 500      # how often to estimate loss during training
 EVAL_ITERS = 50          # batches averaged per loss estimate
 LOG_INTERVAL = 100       # how often to print training throughput (ms/it)
 GEN_TOKENS = 300         # tokens to generate after training
-CKPT_INTERVAL = 1000     # how often to save a checkpoint
+CKPT_INTERVAL = 500      # how often to save a checkpoint
 
 
 @torch.no_grad()
@@ -65,7 +65,7 @@ def save_checkpoint(path, model, optim, it, vocab_size, val_loss, on_save=None):
 def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
         merges_path=MERGES_PATH, max_iters=MAX_ITERS, eval_interval=EVAL_INTERVAL,
         eval_iters=EVAL_ITERS, log_interval=LOG_INTERVAL, gen_tokens=GEN_TOKENS,
-        checkpoint_path=None, on_save=None, ckpt_interval=CKPT_INTERVAL
+        checkpoint_path=None, on_save=None, ckpt_interval=CKPT_INTERVAL, resume_from=None
 ):
     print(f'Using device: {device}')
     torch.manual_seed(SEED)
@@ -92,11 +92,28 @@ def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
 
     # train
     optim = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+
+    start_iter = 0
+    if resume_from and os.path.exists(resume_from):
+        ck = torch.load(resume_from, map_location=device)
+        assert ck['model_cfg'] == model_config(), (
+            f"checkpoint model_cfg {ck['model_cfg']} != current {model_config()}")
+        assert ck['vocab_size'] == vocab_size, (
+            f"checkpoint vocab_size {ck['vocab_size']} != current {vocab_size}")
+        model.load_state_dict(ck['model'])
+        optim.load_state_dict(ck['optim'])
+        start_iter = ck['it'] + 1
+        print(f"resumed from iter {ck['it']} | val {ck['val_loss']:.4f}")
+
+    if start_iter >= max_iters:
+        print(f'checkpoint is already at iter {start_iter - 1} of {max_iters}; nothing to do')
+        return
+
     t_start = time.time()
     t_mark = t_start
     est_loss = {'train': None, 'val': None}
 
-    for it in range(max_iters):
+    for it in range(start_iter, max_iters):
         if it % eval_interval == 0:
             est_loss = estimate_loss(model, loader, device, eval_iters)
             print(f"iter {it:5d} | {fmt_loss(est_loss, 'train')} | {fmt_loss(est_loss, 'val')}")
@@ -197,11 +214,16 @@ app = modal.App("nano-gpt", image=image, volumes={'/runs': volume})
 @app.function(gpu="T4", timeout=7200)
 def train_remote():
     run(device=get_device(), train_path=REMOTE_TRAIN_DATASET, val_path=REMOTE_VAL_DATASET,
-        merges_path=REMOTE_MERGES, checkpoint_path=REMOTE_CKPT, on_save=volume.commit)
+        merges_path=REMOTE_MERGES, checkpoint_path=REMOTE_CKPT, on_save=volume.commit,
+        resume_from=REMOTE_CKPT)
 
 
 @app.function(gpu="T4", timeout=1800)
 def smoke_remote():
+    # resume_from deliberately left at the default None: the Volume is mounted
+    # app-level, so REMOTE_CKPT is visible here too, and a defaulted resume would
+    # make the smoke job silently pick up the real run's checkpoint instead of
+    # starting fresh.
     run(device=get_device(), train_path=REMOTE_TRAIN_DATASET, val_path=REMOTE_VAL_DATASET,
         merges_path=REMOTE_MERGES, max_iters=200, eval_interval=50, eval_iters=20,
         log_interval=25, gen_tokens=100)
