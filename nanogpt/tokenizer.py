@@ -186,7 +186,7 @@ class BPETokenizer(TokenizerBase):
         if not os.path.exists(meta_path):
             raise FileNotFoundError(
                 f'{meta_path} not found — a merges file without its sidecar has no '
-                'recorded pat_str (ADR 0015/0018)')
+                'recorded pat_str')
 
         with open(meta_path) as f:
             meta = json.load(f)

@@ -4,8 +4,9 @@ import time
 import modal
 import torch
 
-from nanogpt.data import DataLoader, build_bpe_tokenizer, load_dataset
+from nanogpt.data import DataLoader, load_dataset
 from nanogpt.model import create_model
+from nanogpt.tokenizer import BPETokenizer
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,7 +52,7 @@ def run(device='cpu', train_path=TRAIN_DATASET_PATH, val_path=VAL_DATASET_PATH,
 
     train_text = load_dataset(train_path)
     val_text = load_dataset(val_path)
-    tok = build_bpe_tokenizer(train_text, merges_path=merges_path)
+    tok = BPETokenizer.load(merges_path)
     vocab_size = tok.get_vocab_size()
 
     loader = DataLoader()
