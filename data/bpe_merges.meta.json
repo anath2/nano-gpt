@@ -1,0 +1,10 @@
+{
+  "pat_str": "'(?:[sdmt]|ll|ve|re)| ?\\p{L}++| ?\\p{N}++| ?[^\\s\\p{L}\\p{N}]++|\\s++$|\\s+(?!\\S)|\\s",
+  "vocab_size": 4096,
+  "input": "/Users/ajitnath/Personal/nano-gpt/data/train.parquet",
+  "slice_mb": 20.0,
+  "num_windows": 20,
+  "seed": 5024,
+  "chars_per_token": 3.5207672455981607,
+  "wall_time": 478.14704513549805
+}
