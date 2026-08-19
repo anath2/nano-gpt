@@ -1,20 +1,18 @@
 import base64
 import json
 import os
-from collections import Counter
 from abc import ABC, abstractmethod
-from typing import Optional
+from collections import Counter
 
 import regex
 import tiktoken
-
 
 PAT_STR = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}++| ?\p{N}++| ?[^\s\p{L}\p{N}]++|\s++$|\s+(?!\S)|\s"""
 
 
 class TokenizerBase(ABC):
 
-    def __init__(self, corpus: Optional[str] = None):
+    def __init__(self, corpus: str | None = None):
         self.corpus = corpus
 
     @abstractmethod
@@ -162,7 +160,7 @@ class BPETokenizer(TokenizerBase):
             out.extend(ids)
         return out
 
-    def save(self, path: str, extra: Optional[dict] = None) -> None:
+    def save(self, path: str, extra: dict | None = None) -> None:
         """Write the merges file and its metadata together, so the two
         can never drift apart."""
         with open(path, 'wb') as f:

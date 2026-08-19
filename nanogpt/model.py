@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 DROPOUT = 0.2
 CONTEXT_LEN = 256
 N_EMBED = 384
@@ -164,3 +163,12 @@ class Transformer(nn.Module):
 
 def create_model(vocab_size):
     return Transformer(CONTEXT_LEN, vocab_size, N_EMBED, N_LAYER, N_HEAD)
+
+
+def model_config():
+    return {
+        'context_len': CONTEXT_LEN,
+        'n_embed': N_EMBED,
+        'n_layer': N_LAYER,
+        'n_head': N_HEAD,
+    }

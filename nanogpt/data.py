@@ -4,7 +4,6 @@ import os
 
 import torch
 
-
 BATCH_SIZE = 64
 CHUNK_SIZE = 256
 TOKEN_DTYPE = torch.int16
