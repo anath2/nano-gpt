@@ -4,15 +4,15 @@ import time
 import modal
 import torch
 
-from nanogpt.data import DataLoader, load_dataset
+from nanogpt.data import DataLoader
 from nanogpt.model import create_model
 from nanogpt.tokenizer import BPETokenizer
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MERGES_PATH = os.path.join(HERE, '..', 'data', 'bpe_merges.txt')
-TRAIN_DATASET_PATH = os.path.join(HERE, '..', 'data', 'train.parquet')
-VAL_DATASET_PATH = os.path.join(HERE, '..', 'data', 'valid.parquet')
+TRAIN_BINARY    = os.path.join(HERE, '..', 'data', 'train.bin')
+VAL_BINARY      = os.path.join(HERE, '..', 'data', 'valid.bin')
 
 # ---------------------------------------------------------------------------
 # Hyperparameters
@@ -45,13 +45,11 @@ def fmt_loss(est, split):
     return f"{split} {est[split]:.4f}"
 
 
-def run(device='cpu', train_path=TRAIN_DATASET_PATH, val_path=VAL_DATASET_PATH,
+def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
         merges_path=MERGES_PATH):
     print(f'Using device: {device}')
     torch.manual_seed(SEED)
 
-    train_text = load_dataset(train_path)
-    val_text = load_dataset(val_path)
     tok = BPETokenizer.load(merges_path)
     vocab_size = tok.get_vocab_size()
 
@@ -65,16 +63,7 @@ def run(device='cpu', train_path=TRAIN_DATASET_PATH, val_path=VAL_DATASET_PATH,
     nparams = sum(p.numel() for p in model.parameters())
     print(f'Model: {nparams / 1e6:.2f}M params | vocab {vocab_size}')
 
-    t_enc = time.time()
-    train_ids = tok.encode(train_text)
-    val_ids = tok.encode(val_text)
-    train_nbytes = len(train_text.encode('utf-8'))
-
-    print(f'Encoded corpus in {(time.time() - t_enc) / 60:.1f} min: '
-          f'train {train_nbytes} bytes -> {len(train_ids)} tokens '
-          f'({train_nbytes / len(train_ids):.2f}x compression), val {len(val_ids)} tokens')
-
-    loader.load(train_ids, val_ids)
+    loader.load(train_path, val_path, merges_path)
 
     # train
     optim = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
@@ -131,16 +120,18 @@ def main():
 # Modal: run training + inference on a remote GPU. Local entrypoint:
 #   uv run nanogpt-train
 # ---------------------------------------------------------------------------
-REMOTE_TRAIN_DATASET = '/root/train.parquet'
-REMOTE_VAL_DATASET = '/root/valid.parquet'
+REMOTE_TRAIN_DATASET = '/root/train.bin'
+REMOTE_VAL_DATASET = '/root/valid.bin'
 REMOTE_MERGES = '/root/bpe_merges.txt'
 
 image = (
     modal.Image.debian_slim(python_version="3.13")
-    .pip_install("torch", "tiktoken", "pyarrow")  # pyarrow: read parquet in data.py
-    .add_local_file(TRAIN_DATASET_PATH, REMOTE_TRAIN_DATASET)
-    .add_local_file(VAL_DATASET_PATH, REMOTE_VAL_DATASET)
+    .pip_install("torch", "regex", "pyarrow", "tiktoken")
+    .add_local_file(TRAIN_BINARY, REMOTE_TRAIN_DATASET)
+    .add_local_file(VAL_BINARY, REMOTE_VAL_DATASET)
     .add_local_file(MERGES_PATH, REMOTE_MERGES)
+    .add_local_file(TRAIN_BINARY+'.meta.json', REMOTE_TRAIN_DATASET+'.meta.json')
+    .add_local_file(VAL_BINARY+'.meta.json', REMOTE_VAL_DATASET+'.meta.json')
     .add_local_python_source("nanogpt")
 )
 
