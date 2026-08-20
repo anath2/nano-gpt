@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import sys
 import time
@@ -20,6 +21,8 @@ VAL_BINARY      = os.path.join(HERE, '..', 'data', 'valid.bin')
 # ---------------------------------------------------------------------------
 SEED = 567
 LEARNING_RATE = 3e-4
+WARMUP_ITERS = 100
+MIN_LR = 3e-5
 MAX_ITERS = 15000
 EVAL_INTERVAL = 500      # how often to estimate loss during training
 EVAL_ITERS = 50          # batches averaged per loss estimate
@@ -47,10 +50,12 @@ def fmt_loss(est, split):
     return f"{split} {est[split]:.4f}"
 
 
-def train_config(lr, max_iters, batch_size, chunk_size, eval_iters, seed):
+def train_config(lr, max_iters, batch_size, chunk_size, eval_iters, seed,
+                 warmup_iters, min_lr):
     """Hyperparameters that affect the trained model """
     return {'lr': lr, 'max_iters': max_iters, 'batch_size': batch_size,
-            'chunk_size': chunk_size, 'eval_iters': eval_iters, 'seed': seed}
+            'chunk_size': chunk_size, 'eval_iters': eval_iters, 'seed': seed,
+            'warmup_iters': warmup_iters, 'min_lr': min_lr}
 
 
 def save_checkpoint(path, model, optim, it, vocab_size, val_loss, on_save=None,
@@ -84,11 +89,26 @@ def save_checkpoint(path, model, optim, it, vocab_size, val_loss, on_save=None,
         on_save()
 
 
+def lr_at(it, peak=LEARNING_RATE, warmup_iters=WARMUP_ITERS, total_iters=MAX_ITERS, min_lr=MIN_LR):
+    """Learning rate at iteration `it`: linear warmup, then cosine decay to `min_lr`.
+
+    Deliberately a pure function of `it` rather than a stateful
+    `torch.optim.lr_scheduler` — resume recomputes the right LR from the iteration
+    number alone, so there is no scheduler state to checkpoint.
+    """
+    if it < warmup_iters:
+        return peak * (it + 1) / warmup_iters  # it+1 so iter 0 is not a dead step at lr=0
+    if it >= total_iters:
+        return min_lr
+    p = (it - warmup_iters) / (total_iters - warmup_iters)
+    return min_lr + 0.5 * (peak - min_lr) * (1 + math.cos(math.pi * p))
+
+
 def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
         merges_path=MERGES_PATH, max_iters=MAX_ITERS, eval_interval=EVAL_INTERVAL,
         eval_iters=EVAL_ITERS, log_interval=LOG_INTERVAL, gen_tokens=GEN_TOKENS,
         checkpoint_path=None, on_save=None, ckpt_interval=CKPT_INTERVAL, resume_from=None,
-        run_name=None
+        run_name=None, warmup_iters=WARMUP_ITERS, min_lr=MIN_LR
 ):
     print(f'Using device: {device}')
     torch.manual_seed(SEED)
@@ -121,7 +141,7 @@ def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
     # train
     optim = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     train_cfg = train_config(LEARNING_RATE, max_iters, loader.batch_size, loader.chunk_size,
-                              eval_iters, SEED)
+                              eval_iters, SEED, warmup_iters, min_lr)
 
     start_iter = 0
     if resume_from and os.path.exists(resume_from):
@@ -138,7 +158,7 @@ def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
         ck_train_cfg = ck.get('train_cfg')
         if ck_train_cfg and ck_train_cfg != train_cfg:
             diffs = ', '.join(
-                f'{k} {ck_train_cfg[k]} -> {train_cfg[k]}'
+                f'{k} {ck_train_cfg.get(k)} -> {train_cfg[k]}'
                 for k in train_cfg if ck_train_cfg.get(k) != train_cfg[k]
             )
             print(f'WARNING: train_cfg differs from checkpoint: {diffs}')
@@ -160,7 +180,9 @@ def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
     for it in range(start_iter, max_iters):
         if it % eval_interval == 0:
             est_loss = estimate_loss(model, loader, device, eval_iters)
-            print(f"iter {it:5d} | {fmt_loss(est_loss, 'train')} | {fmt_loss(est_loss, 'val')}")
+            cur_lr = lr_at(it, warmup_iters=warmup_iters, total_iters=max_iters, min_lr=min_lr)
+            print(f"iter {it:5d} | {fmt_loss(est_loss, 'train')} "
+                  f"| {fmt_loss(est_loss, 'val')} | lr {cur_lr:.2e}")
 
             # Checkpointing
             if it > 0 and checkpoint_path is not None and it % ckpt_interval == 0:
@@ -178,6 +200,13 @@ def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
 
         xb, yb = loader.get_batch('train', device)
         logits, loss = model(xb, yb)
+
+        # total_iters must come from the parameter, not the MAX_ITERS global, or a
+        # short run (smoke) would traverse only the first sliver of the cosine.
+        lr = lr_at(it, warmup_iters=warmup_iters, total_iters=max_iters, min_lr=min_lr)
+        for param_group in optim.param_groups:
+            param_group['lr'] = lr
+
         optim.zero_grad(set_to_none=True)
         loss.backward()
         optim.step()
