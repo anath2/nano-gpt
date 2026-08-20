@@ -3,7 +3,7 @@ name: implementer
 description: >-
   Writes and edits code against an agreed plan. Use only when a plan
   already exists.
-tools: Read, Glob, Grep, Write, Edit, Bash
+tools: Read, Glob, Grep, Write, Edit, Bash, AskUserQuestion, SendMessage, ListAgents
 model: sonnet
 ---
 
