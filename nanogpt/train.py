@@ -283,4 +283,6 @@ def modal_main(smoke: bool = False, run_name: str = '', resume: bool = False):
     if smoke:
         smoke_remote.remote()
     else:
-        train_remote.remote(run_name, resume)
+        fc = train_remote.spawn(run_name, resume)
+        print(f'function call: {fc.object_id}')
+        print(f'follow logs:   modal app logs {app.app_id}')
