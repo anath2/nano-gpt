@@ -20,7 +20,7 @@ VAL_BINARY      = os.path.join(HERE, '..', 'data', 'valid.bin')
 # ---------------------------------------------------------------------------
 SEED = 567
 LEARNING_RATE = 3e-4
-MAX_ITERS = 5000
+MAX_ITERS = 15000
 EVAL_INTERVAL = 500      # how often to estimate loss during training
 EVAL_ITERS = 50          # batches averaged per loss estimate
 LOG_INTERVAL = 100       # how often to print training throughput (ms/it)
@@ -260,7 +260,7 @@ volume = modal.Volume.from_name('nano-gpt-runs', create_if_missing=True)
 
 app = modal.App("nano-gpt", image=image, volumes={'/runs': volume})
 
-@app.function(gpu="T4", timeout=7200)
+@app.function(gpu="T4", timeout=14400)
 def train_remote(run_name: str, resume: bool = False):
     ckpt = os.path.join(REMOTE_RUNS_DIR, run_name, 'ckpt_latest.pt')
     run(device=get_device(), train_path=REMOTE_TRAIN_DATASET, val_path=REMOTE_VAL_DATASET,
