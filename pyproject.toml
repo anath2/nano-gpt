@@ -26,5 +26,10 @@ packages = ["nanogpt"]
 [dependency-groups]
 dev = [
     "pyright>=1.1.411",
+    "pytest>=8.0.0",
     "ruff>=0.16.3",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore:Failed to initialize NumPy:UserWarning"]
