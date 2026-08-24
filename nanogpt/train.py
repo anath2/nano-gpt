@@ -58,6 +58,14 @@ def train_config(lr, max_iters, batch_size, chunk_size, eval_iters, seed,
             'warmup_iters': warmup_iters, 'min_lr': min_lr}
 
 
+def train_cfg_diff(old_cfg, new_cfg):
+    """Readable diff of two train_cfg dicts."""
+    return ', '.join(
+        f'{k} {old_cfg.get(k)} -> {new_cfg[k]}'
+        for k in new_cfg if old_cfg.get(k) != new_cfg[k]
+    )
+
+
 def save_checkpoint(path, model, optim, it, vocab_size, val_loss, on_save=None,
                      train_cfg=None, run_name=None):
     """Save checkpoint to disk, plus a `config.json`"""
@@ -157,11 +165,8 @@ def run(device='cpu', train_path=TRAIN_BINARY, val_path=VAL_BINARY,
 
         ck_train_cfg = ck.get('train_cfg')
         if ck_train_cfg and ck_train_cfg != train_cfg:
-            diffs = ', '.join(
-                f'{k} {ck_train_cfg.get(k)} -> {train_cfg[k]}'
-                for k in train_cfg if ck_train_cfg.get(k) != train_cfg[k]
-            )
-            print(f'WARNING: train_cfg differs from checkpoint: {diffs}')
+            print('WARNING: train_cfg differs from checkpoint: '
+                  f'{train_cfg_diff(ck_train_cfg, train_cfg)}')
     elif resume_from:
         print(f'{resume_from} not found; starting fresh')
     elif checkpoint_path is not None and os.path.exists(checkpoint_path):
