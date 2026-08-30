@@ -93,6 +93,32 @@ class Block(nn.Module):
         return x + self.ffwd(self.ln2(x))
 
 
+def apply_sampling_controls(logits, x_context, temperature=1.0, top_k=None,
+                            repetition_penalty=1.0):
+    """Shape a (B, vocab) row of next-token logits before softmax.
+
+    Applies repetition penalty based on context, temperature and top-k
+    controls.
+    """
+    if repetition_penalty != 1.0:
+        for b in range(logits.size(0)):
+            seen = x_context[b].unique()
+            seen_logits = logits[b, seen]
+            logits[b, seen] = torch.where(
+                seen_logits > 0,
+                seen_logits / repetition_penalty,
+                seen_logits * repetition_penalty)
+
+    logits = logits / temperature
+
+    if top_k:  # None or 0 both mean "no top-k"; 0 would empty the topk
+        k = min(top_k, logits.size(-1))
+        thresh = torch.topk(logits, k, dim=-1).values[:, -1, None]
+        logits = logits.masked_fill(logits < thresh, float('-inf'))
+
+    return logits
+
+
 class Transformer(nn.Module):
     """Naive GPT2 transformer"""
 
