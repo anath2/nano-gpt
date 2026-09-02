@@ -175,16 +175,32 @@ class Transformer(nn.Module):
 
         return logits, loss
 
-    def generate(self, x, seq_len):
+    def generate(self, x, seq_len, temperature=1.0, top_k=None, repetition_penalty=1.0):
+        for next_tok in self.generate_stream(x, seq_len, temperature, top_k,
+                                             repetition_penalty):
+            x = torch.concat((x, next_tok), dim=1)
+        return x
+
+    def generate_stream(self, x, seq_len, temperature=1.0, top_k=None,
+                        repetition_penalty=1.0):
+        #Yield each sampled token as a (B, 1) tensor, as it is produced.
+        if temperature <= 0:
+            raise ValueError(f'temperature must be > 0, got {temperature}')
+        if repetition_penalty <= 0:
+            raise ValueError(f'repetition_penalty must be > 0, got {repetition_penalty}')
+
         for _ in range(seq_len):
-            x_cond = x[:, -self.context_len:]
-            logits, _ = self(x_cond)
-            logits = logits[:, -1, :]
+            x_context = x[:, -self.context_len:]
+            logits, _ = self(x_context)
+            logits = logits[:, -1, :]  # last token logits
+
+            logits = apply_sampling_controls(
+                logits, x_context, temperature, top_k, repetition_penalty)
+
             probs = F.softmax(logits, dim=-1)
             next_tok = torch.multinomial(probs, num_samples=1)
             x = torch.concat((x, next_tok), dim=1)
-
-        return x
+            yield next_tok
 
 
 def create_model(vocab_size):
